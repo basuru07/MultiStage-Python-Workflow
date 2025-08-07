@@ -1,1 +1,7 @@
+<<<<<<< HEAD
 flask
+=======
+Flask==3.0.2
+pytest==8.2.1
+flake8==7.0.0
+>>>>>>> 308e14e027f0a28401cdea07be459df4a29264c7
