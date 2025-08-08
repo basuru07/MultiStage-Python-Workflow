@@ -1,3 +1,4 @@
+# .github/workflows/deploy-wsl.yml
 name: Deploy to WSL
 
 on:
@@ -7,13 +8,11 @@ on:
         required: true
         type: string
       container-name:
-        required: false
+        required: true
         type: string
-        default: "crud-app"
       port:
-        required: false
+        required: true
         type: string
-        default: "5000"
     secrets:
       SSH_USER:
         required: true
@@ -27,54 +26,26 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Deploy to WSL via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.WSL_SERVER_IP }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: 22
-          timeout: 30s
-          script: |
-            echo "🚀 Starting deployment to WSL..."
+    - name: Deploy to WSL Server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.WSL_SERVER_IP }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          # Stop and remove existing container
+          docker stop ${{ inputs.container-name }} || true
+          docker rm ${{ inputs.container-name }} || true
+          
+          # Pull latest image
+          docker pull ${{ inputs.image-name }}
+          
+          # Run new container
+          docker run -d \
+            --name ${{ inputs.container-name }} \
+            -p ${{ inputs.port }}:5000 \
+            --restart unless-stopped \
+            ${{ inputs.image-name }}
             
-            sudo service docker start || true
-            timeout 30 bash -c 'until docker info > /dev/null 2>&1; do sleep 1; done'
-            
-            echo "📥 Pulling Docker image: ${{ inputs.image-name }}"
-            docker pull ${{ inputs.image-name }}
-            
-            echo "🛑 Stopping existing container..."
-            docker stop ${{ inputs.container-name }} 2>/dev/null || true
-            docker rm ${{ inputs.container-name }} 2>/dev/null || true
-            
-            echo "🏃 Starting new container..."
-            docker run -d \
-              --name ${{ inputs.container-name }} \
-              -p ${{ inputs.port }}:5000 \
-              --restart unless-stopped \
-              ${{ inputs.image-name }}
-            
-            sleep 15
-            
-            echo "🏥 Performing health check..."
-            max_retries=5
-            retry_count=0
-            
-            while [ $retry_count -lt $max_retries ]; do
-              if curl -f -s http://localhost:${{ inputs.port }}/health > /dev/null 2>&1; then
-                echo "✅ Deployment successful!"
-                echo "🌐 App running at http://$(hostname -I | awk '{print $1}'):${{ inputs.port }}"
-                exit 0
-              else
-                retry_count=$((retry_count + 1))
-                echo "❌ Health check failed (attempt $retry_count/$max_retries)"
-                if [ $retry_count -lt $max_retries ]; then
-                  sleep 10
-                fi
-              fi
-            done
-            
-            echo "💥 Deployment failed!"
-            docker logs ${{ inputs.container-name }} --tail 20
-            exit 1
+          # Clean up unused images
+          docker image prune -f
