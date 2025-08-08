@@ -33,15 +33,12 @@ jobs:
       - name: Test Flask app startup
         run: |
           echo "🚀 Starting Flask application..."
-          # Start the Flask app in background
           python app.py &
           APP_PID=$!
           
-          # Wait for app to start
           echo "⏳ Waiting for app to start..."
           sleep 10
           
-          # Simple health check test
           echo "🏥 Testing health endpoint..."
           if curl -f -s http://localhost:5000/health; then
             echo "✅ Health check passed!"
@@ -51,17 +48,11 @@ jobs:
             exit 1
           fi
           
-          # Test API endpoints
           echo "🧪 Testing POST endpoint..."
-          RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
-            -d '{"name":"test","description":"test item"}' \
-            http://localhost:5000/items)
-          echo "Response: $RESPONSE"
+          curl -s -X POST -H "Content-Type: application/json" -d '{"name":"test","description":"test item"}' http://localhost:5000/items
           
-          echo "🧪 Testing GET all endpoint..."
-          GET_RESPONSE=$(curl -s http://localhost:5000/items)
-          echo "Response: $GET_RESPONSE"
+          echo "🧪 Testing GET endpoint..."
+          curl -s http://localhost:5000/items
           
-          # Kill the Flask app
           kill $APP_PID
           echo "✅ All tests passed!"

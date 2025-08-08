@@ -1,4 +1,4 @@
-name: CI/CD Pipeline (WSL Deployment)
+name: CI/CD Pipeline
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   deploy-staging:
-    name: 🚀 Deploy to WSL Staging
+    name: 🚀 Deploy to Staging
     needs: docker-build
     if: github.ref == 'refs/heads/develop'
     uses: ./.github/workflows/deploy-wsl.yml
@@ -45,7 +45,7 @@ jobs:
       WSL_SERVER_IP: ${{ secrets.WSL_SERVER_IP }}
 
   deploy-production:
-    name: 🚀 Deploy to WSL Production
+    name: 🚀 Deploy to Production
     needs: docker-build
     if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/deploy-wsl.yml

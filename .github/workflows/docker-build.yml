@@ -6,10 +6,6 @@ on:
       image-name:
         required: true
         type: string
-      dockerfile-path:
-        required: false
-        type: string
-        default: "."
     secrets:
       DOCKER_USERNAME:
         required: true
@@ -40,20 +36,12 @@ jobs:
           images: ${{ inputs.image-name }}
           tags: |
             type=ref,event=branch
-            type=ref,event=pr
             type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix={{branch}}-
 
       - name: Build and push Docker image
-        id: build
         uses: docker/build-push-action@v5
         with:
-          context: ${{ inputs.dockerfile-path }}
+          context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Image digest
-        run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"
