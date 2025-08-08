@@ -11,6 +11,9 @@ id_counter = 1
 def create_item():
     global id_counter
     item = request.json
+    if not item:
+        return jsonify({'error': 'No data provided'}), 400
+    
     item['id'] = id_counter
     data_store[id_counter] = item
     id_counter += 1
@@ -34,6 +37,9 @@ def get_item(item_id):
 def update_item(item_id):
     if item_id in data_store:
         updated_data = request.json
+        if not updated_data:
+            return jsonify({'error': 'No data provided'}), 400
+        
         updated_data['id'] = item_id
         data_store[item_id] = updated_data
         return jsonify(updated_data)
@@ -47,5 +53,10 @@ def delete_item(item_id):
         return jsonify(deleted)
     return jsonify({'error': 'Item not found'}), 404
 
+# Health check endpoint
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy'}), 200
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
