@@ -76,28 +76,58 @@ jobs:
     name: 🚀 Deploy to Staging
     needs: docker-build
     if: github.ref == 'refs/heads/develop'
-    runs-on: self-hosted  # Changed from ubuntu-latest
+    runs-on: self-hosted
     
     steps:
-    - name: Deploy to Staging
+    - name: Clean up previous deployment
       run: |
         docker stop crud-app-staging || true
         docker rm crud-app-staging || true
+        docker image prune -f --filter "dangling=true"
+        
+    - name: Pull and deploy staging
+      run: |
         docker pull ${{ env.DOCKER_IMAGE }}:develop
-        docker run -d --name crud-app-staging -p 5001:5000 --restart unless-stopped ${{ env.DOCKER_IMAGE }}:develop
-        docker image prune -f
+        docker run -d \
+          --name crud-app-staging \
+          -p 5001:5000 \
+          --restart unless-stopped \
+          ${{ env.DOCKER_IMAGE }}:develop
+          
+    - name: Verify deployment
+      run: |
+        sleep 10
+        docker ps | grep crud-app-staging
+        curl -f http://localhost:5001/health || echo "Health check endpoint not available"
 
   deploy-production:
     name: 🚀 Deploy to Production
     needs: docker-build
     if: github.ref == 'refs/heads/main'
-    runs-on: self-hosted  # Changed from ubuntu-latest
+    runs-on: self-hosted
     
     steps:
-    - name: Deploy to Production
+    - name: Clean up previous deployment
       run: |
         docker stop crud-app-prod || true
         docker rm crud-app-prod || true
+        docker image prune -f --filter "dangling=true"
+        
+    - name: Pull and deploy production
+      run: |
         docker pull ${{ env.DOCKER_IMAGE }}:latest
-        docker run -d --name crud-app-prod -p 5000:5000 --restart unless-stopped ${{ env.DOCKER_IMAGE }}:latest
-        docker image prune -f
+        docker run -d \
+          --name crud-app-prod \
+          -p 5000:5000 \
+          --restart unless-stopped \
+          ${{ env.DOCKER_IMAGE }}:latest
+          
+    - name: Verify deployment
+      run: |
+        sleep 10
+        docker ps | grep crud-app-prod
+        curl -f http://localhost:5000/health || echo "Health check endpoint not available"
+        
+    - name: Clean up old images
+      run: |
+        docker image prune -f --filter "dangling=true"
