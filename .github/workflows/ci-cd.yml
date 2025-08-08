@@ -76,38 +76,28 @@ jobs:
     name: 🚀 Deploy to Staging
     needs: docker-build
     if: github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Changed from ubuntu-latest
     
     steps:
     - name: Deploy to Staging
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.WSL_SERVER_IP }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_KEY }}
-        script: |
-          docker stop crud-app-staging || true
-          docker rm crud-app-staging || true
-          docker pull ${{ env.DOCKER_IMAGE }}:develop
-          docker run -d --name crud-app-staging -p 5001:5000 --restart unless-stopped ${{ env.DOCKER_IMAGE }}:develop
-          docker image prune -f
+      run: |
+        docker stop crud-app-staging || true
+        docker rm crud-app-staging || true
+        docker pull ${{ env.DOCKER_IMAGE }}:develop
+        docker run -d --name crud-app-staging -p 5001:5000 --restart unless-stopped ${{ env.DOCKER_IMAGE }}:develop
+        docker image prune -f
 
   deploy-production:
     name: 🚀 Deploy to Production
     needs: docker-build
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Changed from ubuntu-latest
     
     steps:
     - name: Deploy to Production
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.WSL_SERVER_IP }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_KEY }}
-        script: |
-          docker stop crud-app-prod || true
-          docker rm crud-app-prod || true
-          docker pull ${{ env.DOCKER_IMAGE }}:latest
-          docker run -d --name crud-app-prod -p 5000:5000 --restart unless-stopped ${{ env.DOCKER_IMAGE }}:latest
-          docker image prune -f
+      run: |
+        docker stop crud-app-prod || true
+        docker rm crud-app-prod || true
+        docker pull ${{ env.DOCKER_IMAGE }}:latest
+        docker run -d --name crud-app-prod -p 5000:5000 --restart unless-stopped ${{ env.DOCKER_IMAGE }}:latest
+        docker image prune -f
