@@ -1,0 +1,93 @@
+name: Deploy to WSL
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        required: true
+        type: string
+      container-name:
+        required: false
+        type: string
+        default: "crud-app"
+      port:
+        required: false
+        type: string
+        default: "5000"
+    secrets:
+      SSH_USER:
+        required: true
+      SSH_KEY:
+        required: true
+      WSL_SERVER_IP:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deploy to WSL via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.WSL_SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          timeout: 30s
+          script: |
+            echo "🚀 Starting deployment to WSL..."
+            
+            # Start Docker service if not running
+            sudo service docker start || true
+            
+            # Wait for Docker to be ready
+            timeout 30 bash -c 'until docker info > /dev/null 2>&1; do sleep 1; done'
+            
+            # Pull the latest image
+            echo "📥 Pulling Docker image: ${{ inputs.image-name }}"
+            docker pull ${{ inputs.image-name }}
+            
+            # Stop and remove existing container
+            echo "🛑 Stopping existing container..."
+            docker stop ${{ inputs.container-name }} 2>/dev/null || true
+            docker rm ${{ inputs.container-name }} 2>/dev/null || true
+            
+            # Run new container
+            echo "🏃 Starting new container..."
+            docker run -d \
+              --name ${{ inputs.container-name }} \
+              -p ${{ inputs.port }}:5000 \
+              --restart unless-stopped \
+              --network bridge \
+              ${{ inputs.image-name }}
+            
+            # Wait for container to start
+            echo "⏳ Waiting for container to start..."
+            sleep 15
+            
+            # Health check with retry
+            echo "🏥 Performing health check..."
+            max_retries=5
+            retry_count=0
+            
+            while [ $retry_count -lt $max_retries ]; do
+              if curl -f -s http://localhost:${{ inputs.port }}/health > /dev/null 2>&1; then
+                echo "✅ Deployment successful! Application is healthy."
+                echo "🌐 Application is running at http://$(hostname -I | awk '{print $1}'):${{ inputs.port }}"
+                exit 0
+              else
+                retry_count=$((retry_count + 1))
+                echo "❌ Health check failed (attempt $retry_count/$max_retries)"
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "⏳ Retrying in 10 seconds..."
+                  sleep 10
+                fi
+              fi
+            done
+            
+            # If we get here, health check failed
+            echo "💥 Deployment failed! Application health check failed after $max_retries attempts."
+            echo "📋 Container logs:"
+            docker logs ${{ inputs.container-name }} --tail 50
+            exit 1

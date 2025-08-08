@@ -1,6 +1,7 @@
 name: Build & Test
+
 on:
-  workflow_call:   # Makes it reusable
+  workflow_call:
     inputs:
       python-version:
         required: true
@@ -9,6 +10,7 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,7 +21,37 @@ jobs:
           python-version: ${{ inputs.python-version }}
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run tests
-        run: pytest || echo "No tests yet"
+      - name: Lint with flake8 (optional)
+        run: |
+          pip install flake8
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        continue-on-error: true
+
+      - name: Test Flask app
+        run: |
+          # Start the Flask app in background
+          python app.py &
+          APP_PID=$!
+          
+          # Wait for app to start
+          sleep 5
+          
+          # Simple health check test
+          curl -f http://localhost:5000/health || exit 1
+          
+          # Test API endpoints
+          echo "Testing POST endpoint..."
+          curl -X POST -H "Content-Type: application/json" -d '{"name":"test","description":"test item"}' http://localhost:5000/items
+          
+          echo "Testing GET all endpoint..."
+          curl -f http://localhost:5000/items
+          
+          # Kill the Flask app
+          kill $APP_PID

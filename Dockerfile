@@ -1,24 +1,33 @@
-<<<<<<< HEAD
 FROM python:3.10-slim
-=======
-FROM python:3.11-slim
->>>>>>> 308e14e027f0a28401cdea07be459df4a29264c7
 
+# Set working directory
 WORKDIR /app
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better layer caching
 COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-<<<<<<< HEAD
+# Copy application code
 COPY . .
 
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
+
+# Expose port
 EXPOSE 5000
 
-CMD ["python", "app.py"]
-=======
-COPY app/ app/
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:5000/health || exit 1
 
-EXPOSE 5000
-
-CMD ["python", "app/main.py"]
->>>>>>> 308e14e027f0a28401cdea07be459df4a29264c7
+# Run the application
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]

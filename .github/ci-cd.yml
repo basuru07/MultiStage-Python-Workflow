@@ -1,0 +1,59 @@
+name: CI/CD Pipeline (WSL Deployment)
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+env:
+  DOCKER_IMAGE: basuruyasaruwan/flask-crud
+
+jobs:
+  build-test:
+    name: 🧪 Build and Test
+    uses: ./.github/workflows/build-test.yml
+    with:
+      python-version: '3.10'
+
+  docker-build:
+    name: 🐳 Build and Push Docker Image
+    needs: build-test
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      image-name: ${{ env.DOCKER_IMAGE }}
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  deploy-staging:
+    name: 🚀 Deploy to WSL Staging
+    needs: docker-build
+    if: github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/deploy-wsl.yml
+    with:
+      image-name: ${{ env.DOCKER_IMAGE }}:develop
+      container-name: "crud-app-staging"
+      port: "5001"
+    secrets:
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_KEY: ${{ secrets.SSH_KEY }}
+      WSL_SERVER_IP: ${{ secrets.WSL_SERVER_IP }}
+
+  deploy-production:
+    name: 🚀 Deploy to WSL Production
+    needs: docker-build
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/deploy-wsl.yml
+    with:
+      image-name: ${{ env.DOCKER_IMAGE }}:latest
+      container-name: "crud-app-prod"
+      port: "5000"
+    secrets:
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_KEY: ${{ secrets.SSH_KEY }}
+      WSL_SERVER_IP: ${{ secrets.WSL_SERVER_IP }}
